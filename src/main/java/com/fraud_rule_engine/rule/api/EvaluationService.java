@@ -1,9 +1,81 @@
 package com.fraud_rule_engine.rule.api;
-import com.fraud_rule_engine.rule.audit.*; import com.fraud_rule_engine.rule.engine.*; import com.fraud_rule_engine.rule.rules.*; import jakarta.persistence.EntityNotFoundException; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.util.*; import com.fraud_rule_engine.rule.admin.RulesetStateRepository; import com.fraud_rule_engine.rule.feature.FeatureStore;
-@Service public class EvaluationService {
- private final SnapshotHolder snapshots; private final Evaluator evaluator=new Evaluator(); private final EvaluationLogRepository logs; private final RulesetStateRepository state; private final FeatureStore features;
- public EvaluationService(SnapshotHolder s,EvaluationLogRepository l,RulesetStateRepository state,FeatureStore features){snapshots=s;logs=l;this.state=state;this.features=features;}
- @Transactional public EvaluationResponse evaluate(EvaluationRequest req){state.lockState(); Optional<EvaluationLogEntity> old=logs.findByTransactionId(req.transactionId()); if(old.isPresent())return response(old.get()); if(!snapshots.isLoaded())throw new IllegalStateException("No ruleset has been loaded yet"); RuleSet snapshot=snapshots.current(); long start=System.nanoTime(); Map<String,Object> fields=new LinkedHashMap<>(); fields.put("transactionId",req.transactionId());fields.put("customerId",req.customerId());fields.put("amount",req.amount());fields.put("currency",req.currency());fields.put("channel",req.channel());fields.put("merchantCategory",req.merchantCategory());fields.put("country",req.country());fields.put("newDevice",req.newDevice());fields.put("timestamp",req.timestamp().toString()); Map<String,Object> featureValues; try { featureValues=features.recordAndGet(req.customerId(),req.transactionId(),req.amount(),req.timestamp()); } catch (RuntimeException unavailable) { featureValues=Map.of(); } Decision d=evaluator.evaluate(snapshot,EvalContext.of(fields,featureValues)); long micros=(System.nanoTime()-start)/1000; List<MatchedRuleResponse> matches=d.matchedRules().stream().map(x->new MatchedRuleResponse(x.ruleId(),x.version(),x.action())).toList(); EvaluationResponse out=new EvaluationResponse(d.verdict(),matches,d.rulesetVersion(),micros); List<Map<String,Object>> json=matches.stream().map(x->{Map<String,Object> m=new LinkedHashMap<>();m.put("ruleId",x.ruleId().toString());m.put("version",x.version());m.put("action",x.action().name());return m;}).toList(); logs.save(new EvaluationLogEntity(req.transactionId(),d.verdict().name(),d.rulesetVersion(),json,fields,micros)); return out;}
- @Transactional(readOnly=true) public EvaluationResponse get(String transactionId){return response(logs.findByTransactionId(transactionId).orElseThrow(()->new EntityNotFoundException("Evaluation not found: "+transactionId)));}
- private EvaluationResponse response(EvaluationLogEntity e){List<MatchedRuleResponse> matches=e.getMatchedRules().stream().map(m->new MatchedRuleResponse(UUID.fromString(String.valueOf(m.get("ruleId"))),((Number)m.get("version")).intValue(),Action.valueOf(String.valueOf(m.get("action"))))).toList();return new EvaluationResponse(Verdict.valueOf(e.getDecision()),matches,e.getRulesetVersion(),e.getEvaluationMicros());}
+
+import com.fraud_rule_engine.rule.admin.RulesetStateRepository;
+import com.fraud_rule_engine.rule.audit.EvaluationLogEntity;
+import com.fraud_rule_engine.rule.audit.EvaluationLogRepository;
+import com.fraud_rule_engine.rule.engine.Action;
+import com.fraud_rule_engine.rule.engine.Evaluator;
+import com.fraud_rule_engine.rule.engine.SnapshotHolder;
+import com.fraud_rule_engine.rule.engine.Verdict;
+import com.fraud_rule_engine.rule.feature.FeatureStore;
+import com.fraud_rule_engine.rule.rules.EvalContext;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+
+@Service
+public class EvaluationService {
+    private final SnapshotHolder snapshots;
+    private final Evaluator evaluator = new Evaluator();
+    private final EvaluationLogRepository logs;
+    private final RulesetStateRepository state;
+    private final FeatureStore features;
+
+    public EvaluationService(SnapshotHolder s, EvaluationLogRepository l, RulesetStateRepository state, FeatureStore features) {
+        snapshots = s;
+        logs = l;
+        this.state = state;
+        this.features = features;
+    }
+
+    @Transactional
+    public EvaluationResponse evaluate(EvaluationRequest req) {
+        state.lockState();
+        Optional<EvaluationLogEntity> old = logs.findByTransactionId(req.transactionId());
+        if (old.isPresent()) return response(old.get());
+        if (!snapshots.isLoaded()) throw new IllegalStateException("No ruleset has been loaded yet");
+        RuleSet snapshot = snapshots.current();
+        long start = System.nanoTime();
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("transactionId", req.transactionId());
+        fields.put("customerId", req.customerId());
+        fields.put("amount", req.amount());
+        fields.put("currency", req.currency());
+        fields.put("channel", req.channel());
+        fields.put("merchantCategory", req.merchantCategory());
+        fields.put("country", req.country());
+        fields.put("newDevice", req.newDevice());
+        fields.put("timestamp", req.timestamp().toString());
+        Map<String, Object> featureValues;
+        try {
+            featureValues = features.recordAndGet(req.customerId(), req.transactionId(), req.amount(), req.timestamp());
+        } catch (RuntimeException unavailable) {
+            featureValues = Map.of();
+        }
+        Decision d = evaluator.evaluate(snapshot, EvalContext.of(fields, featureValues));
+        long micros = (System.nanoTime() - start) / 1000;
+        List<MatchedRuleResponse> matches = d.matchedRules().stream().map(x -> new MatchedRuleResponse(x.ruleId(), x.version(), x.action())).toList();
+        EvaluationResponse out = new EvaluationResponse(d.verdict(), matches, d.rulesetVersion(), micros);
+        List<Map<String, Object>> json = matches.stream().map(x -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("ruleId", x.ruleId().toString());
+            m.put("version", x.version());
+            m.put("action", x.action().name());
+            return m;
+        }).toList();
+        logs.save(new EvaluationLogEntity(req.transactionId(), d.verdict().name(), d.rulesetVersion(), json, fields, micros));
+        return out;
+    }
+
+    @Transactional(readOnly = true)
+    public EvaluationResponse get(String transactionId) {
+        return response(logs.findByTransactionId(transactionId).orElseThrow(() -> new EntityNotFoundException("Evaluation not found: " + transactionId)));
+    }
+
+    private EvaluationResponse response(EvaluationLogEntity e) {
+        List<MatchedRuleResponse> matches = e.getMatchedRules().stream().map(m -> new MatchedRuleResponse(UUID.fromString(String.valueOf(m.get("ruleId"))), ((Number) m.get("version")).intValue(), Action.valueOf(String.valueOf(m.get("action"))))).toList();
+        return new EvaluationResponse(Verdict.valueOf(e.getDecision()), matches, e.getRulesetVersion(), e.getEvaluationMicros());
+    }
 }

@@ -27,30 +27,32 @@ public final class RuleCompiler {
             case Condition.All all -> {
                 CompiledRule.Node[] kids = all.children().stream()
                         .map(k -> node(k, matchWhenMissing)).toArray(CompiledRule.Node[]::new);
-                yield ctx -> {
+                yield ctx ->{
                     for (CompiledRule.Node kid : kids) {
                         if (!kid.test(ctx)) {
                             return false;
                         }
                     }
                     return true;
-                };
+                }
+                ;
             }
             case Condition.Any any -> {
                 CompiledRule.Node[] kids = any.children().stream()
                         .map(k -> node(k, matchWhenMissing)).toArray(CompiledRule.Node[]::new);
-                yield ctx -> {
+                yield ctx ->{
                     for (CompiledRule.Node kid : kids) {
                         if (kid.test(ctx)) {
                             return true;
                         }
                     }
                     return false;
-                };
+                }
+                ;
             }
             case Condition.Not not -> {
                 CompiledRule.Node kid = node(not.child(), matchWhenMissing);
-                yield ctx -> !kid.test(ctx);
+                yield ctx ->!kid.test(ctx);
             }
             case Condition.Leaf leaf -> leafNode(leaf, matchWhenMissing);
         };
@@ -101,7 +103,7 @@ public final class RuleCompiler {
             case NE -> v -> v instanceof String s && !s.equals(a);
             case IN -> {
                 Set<String> set = Set.copyOf(refs);
-                yield v -> v instanceof String s && set.contains(s);
+                yield v ->v instanceof String s && set.contains(s);
             }
             default -> throw new IllegalStateException("Operator not valid for strings: " + leaf.op());
         };

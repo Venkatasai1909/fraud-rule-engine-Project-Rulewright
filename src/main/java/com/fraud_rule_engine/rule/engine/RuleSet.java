@@ -21,7 +21,7 @@ public record RuleSet(long revision, List<ActiveRule> rules) {
     }
 
     /** Revision 0 means "nothing loaded yet". */
-    public static RuleSet empty() {
+    public static RuleSet empty () {
         return new RuleSet(0, List.of());
     }
 }

@@ -1,8 +1,14 @@
 # Project Rulewright — Fraud Rule Engine
 
-A Spring Boot service for managing versioned fraud rules, evaluating synthetic payment transactions against an in-memory compiled ruleset, recording decisions, enriching transactions with Redis-backed behavioural features, and propagating rule changes between application instances.
+A Spring Boot service for managing versioned fraud rules, evaluating synthetic payment transactions against an in-memory
+compiled ruleset, recording decisions, enriching transactions with Redis-backed behavioural features, and propagating
+rule changes between application instances.
 
-> **Submission accuracy note:** This documentation bundle supplements the Task 1 + Task 2 project. It does not include the Task 3 React UI. At the time this bundle was prepared, the inspected `pom.xml` declared Spring Boot `4.1.2`, while the assignment explicitly asks for Spring Boot 3.x. Resolve that compatibility requirement before submission. The build, integration tests, two-instance demo, and benchmark must be run in your environment; no passing result or latency number is claimed here.
+> **Submission accuracy note:** This documentation bundle supplements the Task 1 + Task 2 project. It does not include
+> the Task 3 React UI. At the time this bundle was prepared, the inspected `pom.xml` declared Spring Boot `4.1.2`, while
+> the assignment explicitly asks for Spring Boot 3.x. Resolve that compatibility requirement before submission. The build,
+> integration tests, two-instance demo, and benchmark must be run in your environment; no passing result or latency number
+> is claimed here.
 
 ## Architecture
 
@@ -14,8 +20,10 @@ At a high level:
 - Rule versions are validated and compiled into immutable in-memory snapshots.
 - The evaluation endpoint reads a snapshot and applies `BLOCK > REVIEW > ALLOW` precedence.
 - `FeatureStore` abstracts in-memory and Redis-backed behavioural features.
-- Redis Sorted Sets hold customer transaction events for sliding-window calculations; Lua provides atomic deduplication/update.
-- Redis Pub/Sub announces committed rule changes. Each instance reloads from PostgreSQL and atomically swaps its complete snapshot. Periodic PostgreSQL version polling is the fallback.
+- Redis Sorted Sets hold customer transaction events for sliding-window calculations; Lua provides atomic
+  deduplication/update.
+- Redis Pub/Sub announces committed rule changes. Each instance reloads from PostgreSQL and atomically swaps its
+  complete snapshot. Periodic PostgreSQL version polling is the fallback.
 
 ## Requirements
 
@@ -60,7 +68,8 @@ Plain unit/API tests are intended to run without Docker or Redis:
 ./mvnw test
 ```
 
-Run this command in a clean environment before submission and record the actual result. Redis/PostgreSQL integration checks should be kept separate from the plain test run if they require live services or Testcontainers.
+Run this command in a clean environment before submission and record the actual result. Redis/PostgreSQL integration
+checks should be kept separate from the plain test run if they require live services or Testcontainers.
 
 ## API examples
 
@@ -99,9 +108,14 @@ The intended behavioural fields are:
 - `customer.txnCount10m` — count of this customer's transactions in the last ten minutes.
 - `customer.amountSum1h` — sum of this customer's transaction amounts in the last hour.
 
-The current Task 2 implementation notes describe the field leaf syntax as `feature`. Verify and, if necessary, update the parser/tests so the assignment's required ordinary leaf syntax `{ "field": "customer.txnCount10m", ... }` is accepted before submission.
+The current Task 2 implementation notes describe the field leaf syntax as `feature`. Verify and, if necessary, update
+the parser/tests so the assignment's required ordinary leaf syntax `{ "field": "customer.txnCount10m", ... }` is
+accepted before submission.
 
-Redis feature retrieval is configured with a 100ms connect/read timeout and a fail-open policy. When features are unavailable, feature-dependent conditions follow the engine's missing-feature policy; ordinary transaction fields remain evaluable. The sorted-set/dedup TTL is currently documented as two hours, so be explicit about the supported replay horizon and its implications.
+Redis feature retrieval is configured with a 100ms connect/read timeout and a fail-open policy. When features are
+unavailable, feature-dependent conditions follow the engine's missing-feature policy; ordinary transaction fields remain
+evaluable. The sorted-set/dedup TTL is currently documented as two hours, so be explicit about the supported replay
+horizon and its implications.
 
 ### Two-instance hot reload demo
 
@@ -111,11 +125,16 @@ With PostgreSQL and Redis running, execute:
 ./scripts/hot-reload-demo.sh
 ```
 
-The script starts two local application processes on ports 8081 and 8082, creates and activates a rule through instance 1, then polls instance 2's `/internal/ready` endpoint for the new ruleset version. It requires the Maven wrapper to be able to run and uses `curl` and Python 3. Run it and retain the actual output; do not report success unless it completes successfully.
+The script starts two local application processes on ports 8081 and 8082, creates and activates a rule through instance
+1, then polls instance 2's `/internal/ready` endpoint for the new ruleset version. It requires the Maven wrapper to be
+able to run and uses `curl` and Python 3. Run it and retain the actual output; do not report success unless it completes
+successfully.
 
 ## Load test and measured latency
 
-The repository's `tools/task2_load_test.py` is intended to create at least 50 active rules and issue 2,000 evaluations at concurrency 20, printing p50 and p95 HTTP latency. Start PostgreSQL and Redis, run the application with `FEATURE_STORE=redis`, then execute:
+The repository's `tools/task2_load_test.py` is intended to create at least 50 active rules and issue 2,000 evaluations
+at concurrency 20, printing p50 and p95 HTTP latency. Start PostgreSQL and Redis, run the application with
+`FEATURE_STORE=redis`, then execute:
 
 ```bash
 python3 tools/task2_load_test.py
@@ -125,7 +144,8 @@ python3 tools/task2_load_test.py
 **Measured p95:** _Record the actual value here._  
 **Environment:** _Record CPU, memory, OS, Docker limits, and whether the app ran on the host or in a container._
 
-The assignment target is p95 below 50ms. Do not replace the placeholders with estimates. Benchmark the complete HTTP path, including Redis and PostgreSQL persistence.
+The assignment target is p95 below 50ms. Do not replace the placeholders with estimates. Benchmark the complete HTTP
+path, including Redis and PostgreSQL persistence.
 
 ## Synthetic data
 
@@ -148,5 +168,8 @@ Use synthetic identifiers and data only. Do not commit real customer or payment 
 
 - Task 1 and Task 2 backend scope is represented in the project.
 - Task 3 React + TypeScript analyst UI is not included in this backend supplement.
-- Before submission: resolve Spring Boot 3.x compatibility; verify field syntax for behavioural features; add/execute injectable-clock window tests; run `./mvnw test` offline; execute the two-instance demo; run and record the 2,000-request benchmark; review transaction idempotency/concurrency behaviour; and update this README with measured evidence.
+- Before submission: resolve Spring Boot 3.x compatibility; verify field syntax for behavioural features; add/execute
+  injectable-clock window tests; run `./mvnw test` offline; execute the two-instance demo; run and record the
+  2,000-request benchmark; review transaction idempotency/concurrency behaviour; and update this README with measured
+  evidence.
 - See [AI_USAGE.md](AI_USAGE.md) for the AI-use disclosure draft and required candidate confirmation.

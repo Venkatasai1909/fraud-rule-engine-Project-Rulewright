@@ -2,7 +2,9 @@ package com.fraud_rule_engine.rule.rules;
 
 import java.util.List;
 
-/** Thrown when a rule definition is invalid. Carries every problem found, not just the first. */
+/**
+ * Thrown when a rule definition is invalid. Carries every problem found, not just the first.
+ */
 @SuppressWarnings("serial")
 public class RuleValidationException extends RuntimeException {
 

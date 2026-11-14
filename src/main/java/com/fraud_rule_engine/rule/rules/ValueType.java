@@ -1,6 +1,8 @@
 package com.fraud_rule_engine.rule.rules;
 
-/** Data type of a request field or a behavioural feature. */
+/**
+ * Data type of a request field or a behavioural feature.
+ */
 public enum ValueType {
     NUMBER, STRING, BOOLEAN;
 

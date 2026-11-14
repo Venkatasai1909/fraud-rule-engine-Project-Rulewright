@@ -17,12 +17,16 @@ public final class SnapshotHolder {
         return ref.get();
     }
 
-    /** False until the first real revision is loaded. Use it for the readiness probe. */
+    /**
+     * False until the first real revision is loaded. Use it for the readiness probe.
+     */
     public boolean isLoaded() {
         return ref.get().revision() > 0;
     }
 
-    /** Installs {@code next} if its revision is newer than the current one. Returns true if installed. */
+    /**
+     * Installs {@code next} if its revision is newer than the current one. Returns true if installed.
+     */
     public boolean swapIfNewer(RuleSet next) {
         Objects.requireNonNull(next);
         while (true) {

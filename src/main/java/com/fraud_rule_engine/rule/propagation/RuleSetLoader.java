@@ -1,5 +1,38 @@
 package com.fraud_rule_engine.rule.propagation;
-import com.fraud_rule_engine.rule.admin.*; import com.fraud_rule_engine.rule.engine.*; import com.fraud_rule_engine.rule.rules.*; import org.springframework.stereotype.Component; import org.springframework.transaction.annotation.Transactional; import java.util.*;
-@Component public class RuleSetLoader {private final RuleVersionRepository versions;private final RulesetStateRepository state;private final RuleParser parser=RuleParser.standard(); public RuleSetLoader(RuleVersionRepository v,RulesetStateRepository s){versions=v;state=s;}
- @Transactional(readOnly=true) public long currentVersion(){return state.findById(1).map(RulesetStateEntity::getVersion).orElse(0L);}
- @Transactional(readOnly=true) public RuleSet load(){long rev=state.findById(1).map(RulesetStateEntity::getVersion).orElse(0L);List<ActiveRule> active=versions.findByStatusOrderByPriorityAsc(RuleStatus.ACTIVE).stream().map(v->new ActiveRule(v.getRule().getId(),v.getRule().getName(),v.getVersionNo(),Action.valueOf(v.getAction()),v.getPriority(),Mode.ENFORCE,RuleCompiler.compile(parser.parse(v.getCondition())))).toList();return new RuleSet(rev,active);}}
+
+import com.fraud_rule_engine.rule.admin.RuleStatus;
+import com.fraud_rule_engine.rule.admin.RuleVersionRepository;
+import com.fraud_rule_engine.rule.admin.RulesetStateEntity;
+import com.fraud_rule_engine.rule.admin.RulesetStateRepository;
+import com.fraud_rule_engine.rule.engine.Action;
+import com.fraud_rule_engine.rule.engine.Mode;
+import com.fraud_rule_engine.rule.rules.RuleCompiler;
+import com.fraud_rule_engine.rule.rules.RuleParser;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Component
+public class RuleSetLoader {
+    private final RuleVersionRepository versions;
+    private final RulesetStateRepository state;
+    private final RuleParser parser = RuleParser.standard();
+
+    public RuleSetLoader(RuleVersionRepository v, RulesetStateRepository s) {
+        versions = v;
+        state = s;
+    }
+
+    @Transactional(readOnly = true)
+    public long currentVersion() {
+        return state.findById(1).map(RulesetStateEntity::getVersion).orElse(0L);
+    }
+
+    @Transactional(readOnly = true)
+    public RuleSet load() {
+        long rev = state.findById(1).map(RulesetStateEntity::getVersion).orElse(0L);
+        List<ActiveRule> active = versions.findByStatusOrderByPriorityAsc(RuleStatus.ACTIVE).stream().map(v -> new ActiveRule(v.getRule().getId(), v.getRule().getName(), v.getVersionNo(), Action.valueOf(v.getAction()), v.getPriority(), Mode.ENFORCE, RuleCompiler.compile(parser.parse(v.getCondition())))).toList();
+        return new RuleSet(rev, active);
+    }
+}
